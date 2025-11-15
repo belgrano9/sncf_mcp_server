@@ -1,0 +1,15 @@
+[project]
+name = "sncf-mcp"
+version = "0.1.0"
+description = "MCP server for SNCF"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "loguru>=0.7.3",
+    "mcp[cli]>=1.21.0",
+    "navitia-client>=0.6.2",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+    "rich>=14.2.0",
+]
