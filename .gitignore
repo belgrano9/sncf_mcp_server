@@ -10,10 +10,13 @@ wheels/
 .venv
 
 # Environment variables (contains API keys - NEVER commit)
-.env
+*.env
 
 # Notebooks (never commit)
 *.ipynb
 
 # Documentation/notes (never commit)
 vocabulary.md
+
+# IDE/Tool-specific
+.claude/
