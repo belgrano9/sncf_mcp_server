@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Environment variables (contains API keys - NEVER commit)
+.env
+
 # Notebooks (never commit)
 *.ipynb
 
