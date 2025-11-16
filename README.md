@@ -459,7 +459,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Related Projects
 
-- [Renfe MCP Server](https://github.com/yourusername/renfe_mcp) - Similar server for Spanish railways
+- [Renfe MCP Server](https://github.com/belgrano9/renfe_mcp_server/tree/master) - Similar server for Spanish railways
 - [FastMCP](https://github.com/jlowin/fastmcp) - The framework powering this server
 - [MCP Servers](https://github.com/modelcontextprotocol/servers) - Official MCP server implementations
 
