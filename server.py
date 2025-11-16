@@ -118,18 +118,34 @@ def find_station_id(station_name):
         }
 
 
-def search_journeys_with_context(origin_id, dest_id, departure_time):
+def search_journeys_with_context(origin_id, dest_id, departure_time, page=1):
     """
     Queries the API for journeys and returns formatted results with context.
     Returns a string with the journey options formatted for Claude to read.
+
+    Args:
+        origin_id: Origin station ID
+        dest_id: Destination station ID
+        departure_time: Departure datetime in API format
+        page: Page number (1-indexed), shows 10 results per page
     """
     if not origin_id or not dest_id:
         return "❌ Missing Origin or Destination ID. Cannot search for journeys."
 
+    # Validate page number
+    if page < 1:
+        return "❌ Page number must be 1 or greater."
+
     try:
+        # Request more results to enable pagination (100 journeys)
         response = api_get(
             "coverage/sncf/journeys",
-            params={"from": origin_id, "to": dest_id, "datetime": departure_time},
+            params={
+                "from": origin_id,
+                "to": dest_id,
+                "datetime": departure_time,
+                "count": 100,  # Fetch 100 journeys to enable pagination
+            },
         )
 
         journeys = response.get("journeys", [])
@@ -137,10 +153,27 @@ def search_journeys_with_context(origin_id, dest_id, departure_time):
         if not journeys:
             return "❌ No journeys found for this route and time. Try a different time or date."
 
-        # Build the journey list
-        result = f"Found {len(journeys)} journey option(s):\n\n"
+        # Pagination settings
+        per_page = 10
+        total_journeys = len(journeys)
+        total_pages = (total_journeys + per_page - 1) // per_page  # Ceiling division
 
-        for i, journey in enumerate(journeys[:5]):  # Limit to top 5
+        # Validate page number against total pages
+        if page > total_pages:
+            return f"❌ Page {page} does not exist. Only {total_pages} page(s) available with {total_journeys} journey(s)."
+
+        # Calculate slice for current page
+        start_idx = (page - 1) * per_page
+        end_idx = min(start_idx + per_page, total_journeys)
+        page_journeys = journeys[start_idx:end_idx]
+
+        # Build the journey list with pagination info
+        result = f"Found {total_journeys} journey option(s) | Page {page}/{total_pages}\n"
+        if total_pages > 1:
+            result += f"ℹ️  Showing results {start_idx + 1}-{end_idx} of {total_journeys}\n"
+        result += "\n"
+
+        for i, journey in enumerate(page_journeys, start=start_idx + 1):
             # Extract times
             departs = journey["departure_date_time"]
             arrives = journey["arrival_date_time"]
@@ -193,9 +226,11 @@ def search_journeys_with_context(origin_id, dest_id, departure_time):
 
 
 @mcp.tool()
-def search_trains(origin: str, destination: str, departure_datetime: str = None) -> str:
+def search_trains(
+    origin: str, destination: str, departure_datetime: str = None, page: int = 1
+) -> str:
     """
-    Search for train journeys between two stations.
+    Search for train journeys between two stations with pagination.
 
     Args:
         origin: Starting station name (e.g., "Paris Est", "Lyon")
@@ -205,6 +240,8 @@ def search_trains(origin: str, destination: str, departure_datetime: str = None)
                            - European: "28/11/2025 08:00"
                            - Written: "November 28, 2025 8:00am"
                            If not provided, searches from current time.
+        page: Page number for pagination (default: 1). Shows 10 results per page.
+              Request different pages to see more trains (e.g., page=2, page=3).
     """
 
     # Build up a story for Claude
@@ -245,7 +282,7 @@ def search_trains(origin: str, destination: str, departure_datetime: str = None)
     story += "─────────────────────────────────\n\n"
 
     journey_results = search_journeys_with_context(
-        origin_result["station_id"], dest_result["station_id"], api_datetime
+        origin_result["station_id"], dest_result["station_id"], api_datetime, page
     )
 
     story += journey_results
@@ -281,6 +318,107 @@ def find_station(station_name: str) -> str:
     if result["success"]:
         story += f"\n✅ Best match: {result['station_name']}\n"
         story += f"   ID: {result['station_id']}\n"
+
+    story += "\n═══════════════════════════════════\n"
+
+    return story
+
+
+@mcp.tool()
+def get_train_prices(
+    origin: str,
+    destination: str,
+    departure_datetime: str = None,
+    page: int = 1,
+    per_page: int = 5
+) -> str:
+    """
+    Get train prices (EXPERIMENTAL - Educational Proof of Concept).
+
+    ⚠️ WARNING: This is an experimental feature that attempts to scrape
+    prices from SNCF. It may not work due to:
+    - Anti-scraping measures
+    - API changes
+    - Terms of Service restrictions
+
+    For production use, consider:
+    - Lyko SNCF Connect API
+    - Trainline API
+    - Official SNCF partnerships
+
+    Args:
+        origin: Origin station name (e.g., "Paris", "Lyon")
+        destination: Destination station name (e.g., "Marseille")
+        departure_datetime: Date/time in flexible formats (default: today)
+        page: Page number for pagination (default: 1)
+        per_page: Results per page (default: 5, max: 20)
+
+    Returns:
+        Formatted string with price information (if available)
+    """
+    # Import here to make it optional
+    try:
+        from price_checker import check_sncf_prices, format_price_results
+    except ImportError as e:
+        return (
+            "❌ Price checking module not available.\n\n"
+            f"Error: {e}\n\n"
+            "This is an experimental feature. "
+            "For real pricing, please visit https://www.sncf-connect.com"
+        )
+
+    story = "═══════════════════════════════════\n"
+    story += "  SNCF PRICE CHECK (EXPERIMENTAL)\n"
+    story += "═══════════════════════════════════\n\n"
+
+    story += "⚠️  WARNING: Experimental feature\n"
+    story += "    May not work due to anti-scraping measures\n"
+    story += "    For educational purposes only\n\n"
+
+    # Find stations (reuse existing logic)
+    origin_result = find_station_id(origin)
+    if not origin_result["success"]:
+        story += f"❌ Origin station not found: {origin}\n"
+        return story
+
+    dest_result = find_station_id(destination)
+    if not dest_result["success"]:
+        story += f"❌ Destination station not found: {destination}\n"
+        return story
+
+    # Format date
+    api_datetime = get_formatted_date(departure_datetime)
+    # Convert to date only (YYYY-MM-DD)
+    date_str = api_datetime[:8]  # YYYYMMDD
+    formatted_date = f"{date_str[0:4]}-{date_str[4:6]}-{date_str[6:8]}"
+
+    story += f"📍 Route: {origin_result['station_name']} → {dest_result['station_name']}\n"
+    story += f"📅 Date: {formatted_date}\n\n"
+
+    story += "─────────────────────────────────\n"
+    story += "Attempting to fetch prices...\n"
+    story += "─────────────────────────────────\n\n"
+
+    # Attempt price check
+    try:
+        price_result = check_sncf_prices(
+            origin_id=origin_result["station_id"],
+            destination_id=dest_result["station_id"],
+            date=formatted_date,
+            page=page,
+            per_page=per_page
+        )
+
+        # Format results
+        formatted_output = format_price_results(price_result)
+        story += formatted_output
+
+    except Exception as e:
+        story += f"❌ Price check failed: {str(e)}\n\n"
+        story += "This feature is experimental and may not work.\n"
+        story += "For real pricing, please visit:\n"
+        story += "- SNCF Connect: https://www.sncf-connect.com\n"
+        story += "- Or use commercial API providers\n"
 
     story += "\n═══════════════════════════════════\n"
 

@@ -20,3 +20,8 @@ vocabulary.md
 
 # IDE/Tool-specific
 .claude/
+
+# Test output files
+api_response.json
+tests/api_response.json
+*.json.bak

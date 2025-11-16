@@ -218,16 +218,88 @@ Search for train stations in a city or by name.
 ═══════════════════════════════════
 ```
 
+### 3. `get_train_prices` ⚠️ EXPERIMENTAL
+
+**Educational Proof of Concept Only - May Not Work**
+
+Attempts to scrape price information from SNCF's booking system.
+
+**⚠️ IMPORTANT DISCLAIMERS:**
+- This is an **experimental feature** for educational purposes only
+- **May violate SNCF's Terms of Service**
+- Likely blocked by anti-scraping measures (403 Forbidden)
+- **NOT recommended for production use**
+- For real pricing, use commercial APIs (Lyko, Trainline) or SNCF Connect website
+
+**Parameters:**
+- `origin` (string): Origin station/city name
+- `destination` (string): Destination station/city name
+- `departure_datetime` (string, optional): Travel date/time (same formats as search_trains)
+- `page` (integer, optional): Page number (default: 1)
+- `per_page` (integer, optional): Results per page (default: 5, max: 20)
+
+**Example Output (if it worked):**
+```
+═══════════════════════════════════
+  SNCF PRICE CHECK (EXPERIMENTAL)
+═══════════════════════════════════
+
+⚠️  WARNING: Experimental feature
+    May not work due to anti-scraping measures
+    For educational purposes only
+
+📍 Route: Paris Gare de Lyon → Marseille Saint-Charles
+📅 Date: 2025-11-17
+
+─────────────────────────────────
+Attempting to fetch prices...
+─────────────────────────────────
+
+❌ Price check failed: Access forbidden - anti-scraping measures detected
+
+This feature is experimental and may not work.
+For real pricing, please visit:
+- SNCF Connect: https://www.sncf-connect.com
+- Or use commercial API providers
+```
+
+**Why This Probably Won't Work:**
+- SNCF employs anti-scraping measures (403 Forbidden)
+- Requires reverse-engineering their booking API
+- API structure is proprietary and undocumented
+- May violate Terms of Service
+
+**Recommended Alternatives for Production:**
+- [Lyko SNCF Connect API](https://lyko.tech/en/portfolio/train-api/sncf-connect-api/) - Commercial provider
+- [Trainline API](https://www.thetrainline.com) - Multi-operator booking
+- Official SNCF partnership programs
+
+See [sncf_scraper/README.md](sncf_scraper/README.md) for technical details and ethical considerations.
+
 ## 🏗️ Architecture
 
 ```
 sncf_mcp_server/
-├── server.py           # FastMCP server implementation
-├── pyproject.toml      # Dependencies & project config
-├── .env                # API key (not committed)
-├── .gitignore          # Git ignore rules
-├── README.md           # This file
-└── test_notebook.ipynb # Jupyter notebook for testing
+├── server.py              # FastMCP server implementation
+├── price_checker.py       # Price scraping wrapper (experimental)
+├── pyproject.toml         # Dependencies & project config
+├── .env                   # API key (not committed)
+├── .gitignore             # Git ignore rules
+├── README.md              # This file
+├── test_notebook.ipynb    # Jupyter notebook for testing
+├── sncf_scraper/          # Price scraper module (experimental)
+│   ├── __init__.py          # Module exports
+│   ├── models.py            # TrainOffer, PriceSearchResult models
+│   ├── scraper.py           # SNCFPriceScraper implementation
+│   └── README.md            # Scraper documentation & disclaimers
+└── tests/                 # Test suite
+    ├── test_simple.py         # Simple train search test
+    ├── test_pagination.py     # Pagination feature test
+    ├── test_search.py         # MCP wrapper test
+    ├── test_price_scraper.py  # Price scraper tests (experimental)
+    ├── debug_*.py             # Debug/diagnostic scripts
+    ├── run_all_tests.py       # Test runner
+    └── README.md              # Test documentation
 ```
 
 ### How It Works
@@ -250,6 +322,8 @@ sncf_mcp_server/
 - ✅ Shows top 3 station matches for transparency
 - ✅ Handles both domestic and international routes
 - ✅ Transfer information with route breakdown
+- ✅ **Pagination support** - Returns 10 results per page (up to 100 journeys)
+- ✅ **Comprehensive test suite** - See [tests/README.md](tests/README.md)
 
 ## 🌍 Supported Routes
 
@@ -305,6 +379,23 @@ fastmcp dev server.py
 - `server.py` - Main MCP server with `search_trains` and `find_station` tools
 - `.env` - API key configuration (never commit!)
 - `test_notebook.ipynb` - Interactive testing notebook
+- `tests/` - Test suite (see [tests/README.md](tests/README.md))
+
+### Testing
+
+Run the test suite to verify everything works:
+
+```bash
+# Run all tests
+uv run tests/run_all_tests.py
+
+# Run individual tests
+uv run tests/test_simple.py       # Simple train search
+uv run tests/test_pagination.py   # Pagination feature
+uv run tests/debug_env2.py         # Environment check
+```
+
+See [tests/README.md](tests/README.md) for detailed test documentation.
 
 ## 📝 Data Source
 
